@@ -26,10 +26,13 @@
 │   │   └── .gitkeep
 │   └── report.md
 ├── src
+│   ├── config.py
 │   ├── modeling.py
 │   └── preprocessing.py
 ├── tests
-│   └── test.py
+│   ├── test.py
+│   └── test_preprocess.py
+├── pyproject.toml
 ├── requirements.txt
 └── README.md
 ```
@@ -44,12 +47,23 @@ pip install -r requirements.txt
 ## Данные
 Сырые файлы (`train.csv`, `test.csv`, `sample_submission.csv`) положите в `data/raw/`.
 
-`notebooks/01_eda.ipynb` также умеет читать CSV из корня проекта (если они лежат рядом с `README.md`).
+## Обработка данныхн
+- `src/preprocessing.py` - загрузка, дедупликация по `id`, импутация, feature engineering, `LabelEncoder` для категорий.
+- Константы и корень проекта: `src/config.py` (`RANDOM_STATE = 42`).
+
+## Моделирование и эксперименты
+- `src/modeling.py` — стратифицированный split 70/15/15, CV Log Loss, `RandomizedSearchCV` для LightGBM, сохранение сабмита.
+- `notebooks/03_experiments.ipynb` — те же шаги с таблицей кандидатов и графиком важности признаков в `report/images/`.
 
 ## Ноутбуки
-- `notebooks/01_eda.ipynb` — EDA, подготовка данных, базовые модели, PCA, сохранение сплитов
-- `notebooks/02_baseline.ipynb` — заготовка под baseline этап
-- `notebooks/03_experiments.ipynb` — заготовка под эксперименты
+- `notebooks/01_eda.ipynb` — EDA и ранние эксперименты.
+- `notebooks/02_baseline.ipynb` — Logistic Regression на подготовленных данных.
+- `notebooks/03_experiments.ipynb` — CV, подбор гиперпараметров LightGBM, сабмит, feature importance.
+
+## Тесты
+```bash
+pytest tests/ -v
+```
 
 ## Отчёт
 Файл отчёта: [`report/report.md`](report/report.md)

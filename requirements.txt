@@ -9,6 +9,7 @@ lightgbm>=4.0.0
 # Code quality (do not remove — used by CI)
 flake8>=6.1.0
 pytest>=7.4.0
+ruff>=0.4.0
 papermill>=2.4.0
 
 # Notebooks (для papermill в CI)
