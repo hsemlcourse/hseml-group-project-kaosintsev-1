@@ -1,7 +1,7 @@
 from pathlib import Path
 
 
-def project_rootect_root():
+def project_root():
     here = Path(__file__).resolve().parent.parent
     if (here / "data" / "raw" / "train.csv").exists():
         return here
@@ -20,3 +20,7 @@ def project_rootect_root():
 RANDOM_STATE = 42
 N_CV_SPLITS = 5
 MISSING_TOKEN = "missing"
+
+MODEL_PATH = project_root() / "models" / "lgbm_model.joblib"
+PREPROCESSOR_PATH = project_root() / "models" / "preprocessor.joblib"
+MODEL_META_PATH = project_root() / "models" / "model_meta.json"

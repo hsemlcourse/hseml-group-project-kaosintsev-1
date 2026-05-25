@@ -1,4 +1,5 @@
 import pickle
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
@@ -15,6 +16,78 @@ def resolve_id_column(df):
     raise KeyError("нет колонки id")
 
 
+@dataclass
+class Preprocessor:
+    feat_cols: list
+    num_cols: list
+    cat_cols: list
+    medians: pd.Series
+    encoders: dict
+
+    def save(self, path):
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "wb") as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, path):
+        with open(path, "rb") as f:
+            return pickle.load(f)
+
+    @classmethod
+    def fit(cls, train, test):
+        train = train.copy()
+        test = test.copy()
+
+        id_col = resolve_id_column(train)
+        train = train.drop_duplicates(subset=[id_col]).reset_index(drop=True)
+        test = test.drop_duplicates(subset=[id_col]).reset_index(drop=True)
+
+        feat_cols = [c for c in train.columns if c not in (id_col, "target")]
+        num_cols = train[feat_cols].select_dtypes(include=["number"]).columns.tolist()
+        cat_cols = [c for c in feat_cols if c not in num_cols]
+
+        medians = train[num_cols].median()
+        encoders = {}
+        for col in cat_cols:
+            le = LabelEncoder()
+            both = pd.concat([train[col], test[col]], axis=0).astype(str).fillna(MISSING_TOKEN)
+            le.fit(both)
+            encoders[col] = le
+
+        return cls(
+            feat_cols=feat_cols,
+            num_cols=num_cols,
+            cat_cols=cat_cols,
+            medians=medians,
+            encoders=encoders,
+        )
+
+    def transform(self, df):
+        df = df.copy()
+        raw = df[self.feat_cols].copy()
+
+        for col in self.num_cols:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df[self.num_cols] = df[self.num_cols].fillna(self.medians)
+        for col in self.cat_cols:
+            df[col] = df[col].fillna(MISSING_TOKEN).astype(str)
+            le = self.encoders[col]
+            known = set(le.classes_)
+            df[col] = df[col].apply(lambda x: x if x in known else MISSING_TOKEN)
+            df[col] = le.transform(df[col])
+
+        out = df[self.feat_cols].copy()
+        out["count_nan_per_row"] = raw.isna().sum(axis=1)
+        out["count_cat_per_row"] = raw[self.cat_cols].notna().sum(axis=1)
+        out["row_num_mean"] = df[self.num_cols].mean(axis=1)
+        out["row_num_std"] = df[self.num_cols].std(axis=1)
+        out["row_num_min"] = df[self.num_cols].min(axis=1)
+        out["row_num_max"] = df[self.num_cols].max(axis=1)
+        return out
+
+
 def load_train_test(data_dir):
     data_dir = Path(data_dir)
     train = pd.read_csv(data_dir / "train.csv")
@@ -27,61 +100,23 @@ def prepare_data(train, test):
     test = test.copy()
 
     id_col = resolve_id_column(train)
-
     train = train.drop_duplicates(subset=[id_col]).reset_index(drop=True)
     test = test.drop_duplicates(subset=[id_col]).reset_index(drop=True)
 
-    feat_cols = [c for c in train.columns if c not in (id_col, "target")]
-    num_cols = train[feat_cols].select_dtypes(include=["number"]).columns.tolist()
-    cat_cols = [c for c in feat_cols if c not in num_cols]
-
-    train_raw = train[feat_cols].copy()
-    test_raw = test[feat_cols].copy()
-
-    med = train[num_cols].median()
-    train[num_cols] = train[num_cols].fillna(med)
-    test[num_cols] = test[num_cols].fillna(med)
-
-    for c in cat_cols:
-        train[c] = train[c].fillna(MISSING_TOKEN)
-        test[c] = test[c].fillna(MISSING_TOKEN)
-
-    for c in cat_cols:
-        le = LabelEncoder()
-        both = pd.concat([train[c], test[c]], axis=0).astype(str)
-        le.fit(both)
-        train[c] = le.transform(train[c].astype(str))
-        test[c] = le.transform(test[c].astype(str))
-
-    X_train = train[feat_cols].copy()
-    X_train["count_nan_per_row"] = train_raw.isna().sum(axis=1)
-    X_train["count_cat_per_row"] = train_raw[cat_cols].notna().sum(axis=1)
-    X_train["row_num_mean"] = train[num_cols].mean(axis=1)
-    X_train["row_num_std"] = train[num_cols].std(axis=1)
-    X_train["row_num_min"] = train[num_cols].min(axis=1)
-    X_train["row_num_max"] = train[num_cols].max(axis=1)
-
+    preprocessor = Preprocessor.fit(train, test)
+    X_train = preprocessor.transform(train)
     y = train["target"].astype(int)
 
-    X_kaggle = test[feat_cols].copy()
-    X_kaggle["count_nan_per_row"] = test_raw.isna().sum(axis=1)
-    X_kaggle["count_cat_per_row"] = test_raw[cat_cols].notna().sum(axis=1)
-    X_kaggle["row_num_mean"] = test[num_cols].mean(axis=1)
-    X_kaggle["row_num_std"] = test[num_cols].std(axis=1)
-    X_kaggle["row_num_min"] = test[num_cols].min(axis=1)
-    X_kaggle["row_num_max"] = test[num_cols].max(axis=1)
-
+    X_kaggle = preprocessor.transform(test)
     kaggle_id = test[id_col]
 
-    return X_train, y, X_kaggle, kaggle_id
+    return X_train, y, X_kaggle, kaggle_id, preprocessor
 
 
 def prepare_from_paths(train_path, test_path, save_preprocessor=None):
     train = pd.read_csv(train_path)
     test = pd.read_csv(test_path)
-    X_train, y, X_kaggle, kaggle_id = prepare_data(train, test)
+    X_train, y, X_kaggle, kaggle_id, preprocessor = prepare_data(train, test)
     if save_preprocessor is not None:
-        Path(save_preprocessor).parent.mkdir(parents=True, exist_ok=True)
-        with open(save_preprocessor, "wb") as f:
-            pickle.dump({"train_csv": str(train_path), "test_csv": str(test_path)}, f)
+        preprocessor.save(save_preprocessor)
     return X_train, y, X_kaggle, kaggle_id

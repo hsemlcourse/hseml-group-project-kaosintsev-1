@@ -2,71 +2,82 @@
 # ML Project — BNP Paribas Cardif Claims Management
 
 **Задача:** бинарная классификация `target` (0/1)  
-**Студент:** Осинцев Кирилл Андреевич БИВ235
+**Студент:** Осинцев Кирилл Андреевич, БИВ235  
 **Датасет:** [Kaggle: BNP Paribas Cardif Claims Management](https://www.kaggle.com/c/bnp-paribas-cardif-claims-management)  
 **Целевая метрика:** Log Loss (дополнительно ROC-AUC)
 
-Датасет содержит анонимизированные данные о страховых заявках, которые делятся на два класса: заявки, которые можно одобрить быстро (и сразу выплатить), и заявки, требующие дополнительной проверки перед одобрениемсд
+Датасет содержит анонимизированные данные о страховых заявках: быстрое одобрение (класс 1) или дополнительная проверка (класс 0).
 
 ## Структура репозитория
+
 ```text
 .
 ├── data
-│   ├── processed
-│   │   └── .gitkeep
-│   └── raw
-│       └── .gitkeep
-├── models
-│   └── .gitkeep
-├── notebooks
-│   ├── 01_eda.ipynb
-│   ├── 02_baseline.ipynb
-│   └── 03_experiments.ipynb
-├── presentation
-│   └── README.md
-├── report
-│   ├── images
-│   │   └── .gitkeep
-│   └── report.md
-├── src
+│   ├── processed/          # сабмиты, промежуточные файлы
+│   └── raw/                # train.csv, test.csv
+├── models/                 # обученная модель и препроцессор
+├── notebooks/              # EDA, baseline, эксперименты
+├── report/                 # отчёт и графики
+├── scripts/
+│   ├── train_model.py      # обучение и сохранение модели
+│   └── export_report_figures.py
+├── src/
+│   ├── api/main.py         # FastAPI
+│   ├── app/streamlit_app.py
 │   ├── config.py
+│   ├── inference.py
 │   ├── modeling.py
 │   └── preprocessing.py
-├── tests
-│   ├── test.py
-│   └── test_preprocess.py
+├── docker-compose.yml
+├── Dockerfile
 ├── pyproject.toml
 ├── requirements.txt
-└── README.md
+└── tests/
 ```
 
 ## Быстрый старт
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Данные
-Сырые файлы (`train.csv`, `test.csv`, `sample_submission.csv`) положите в `data/raw/`.
+Положите `train.csv`, `test.csv` в `data/raw/`.
 
-## Обработка данныхн
-- `src/preprocessing.py` - загрузка, дедупликация по `id`, импутация, feature engineering, `LabelEncoder` для категорий.
-- Константы и корень проекта: `src/config.py` (`RANDOM_STATE = 42`).
+## Обучение модели
 
-## Моделирование и эксперименты
-- `src/modeling.py` — стратифицированный split 70/15/15, CV Log Loss, `RandomizedSearchCV` для LightGBM, сохранение сабмита.
-- `notebooks/03_experiments.ipynb` — те же шаги с таблицей кандидатов и графиком важности признаков в `report/images/`.
+```bash
+python scripts/train_model.py
+python scripts/export_report_figures.py
+```
 
-## Ноутбуки
-- `notebooks/01_eda.ipynb` — EDA и ранние эксперименты.
-- `notebooks/02_baseline.ipynb` — Logistic Regression на подготовленных данных.
-- `notebooks/03_experiments.ipynb` — CV, подбор гиперпараметров LightGBM, сабмит, feature importance.
+## Деплой (Docker)
 
-## Тесты
+```bash
+docker compose up --build
+```
+
+| Сервис | URL |
+|--------|-----|
+| FastAPI (Swagger) | http://localhost:8000/docs |
+| Streamlit UI | http://localhost:8501 |
+| Jupyter | http://localhost:8888 |
+
+### API без Docker
+
+```bash
+uvicorn src.api.main:app --reload --port 8000
+streamlit run src/app/streamlit_app.py
+```
+
+## Тесты и линтер
+
 ```bash
 pytest tests/ -v
+ruff check src/ --line-length 120
 ```
 
 ## Отчёт
-Файл отчёта: [`report/report.md`](report/report.md)
+
+Полный отчёт: [`report/report.md`](report/report.md)  

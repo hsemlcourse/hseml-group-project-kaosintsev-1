@@ -10,12 +10,11 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, train_t
 from src.config import RANDOM_STATE
 
 
-def neg_log_loss_scorer(model, X, y):
-    p = model.predict_proba(X)[:, 1]
-    return -log_loss(y, p)
+def neg_log_loss(y_true, y_pred):
+    return -log_loss(y_true, y_pred)
 
 
-neg_log_loss = make_scorer(neg_log_loss_scorer, greater_is_better=True, needs_proba=True)
+neg_log_loss_scorer = make_scorer(neg_log_loss, greater_is_better=True, needs_proba=True)
 
 
 def evaluate_binary(model, X_val, y_val):
@@ -83,7 +82,7 @@ def random_search_lgbm(X, y, n_iter=12, cv=5, random_state=RANDOM_STATE):
         base,
         param_distributions=grid,
         n_iter=n_iter,
-        scoring=neg_log_loss,
+        scoring=neg_log_loss_scorer,
         cv=kf,
         random_state=random_state,
         n_jobs=-1,

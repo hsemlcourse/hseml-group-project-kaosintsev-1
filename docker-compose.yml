@@ -1,4 +1,44 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ml_project:dev
+    container_name: ml_project_api
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    environment:
+      PYTHONPATH: /app
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python scripts/train_model.py 2>/dev/null || true &&
+      uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ml_project:dev
+    container_name: ml_project_streamlit
+    working_dir: /app
+    ports:
+      - "8501:8501"
+    environment:
+      PYTHONPATH: /app
+      API_URL: http://api:8000
+    volumes:
+      - .:/app
+    depends_on:
+      - api
+    command: >
+      sh -c "python scripts/train_model.py 2>/dev/null || true &&
+      streamlit run src/app/streamlit_app.py
+      --server.port=8501
+      --server.address=0.0.0.0
+      --browser.gatherUsageStats=false"
+
   jupyter:
     build:
       context: .

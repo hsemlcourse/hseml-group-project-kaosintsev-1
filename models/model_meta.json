@@ -1,0 +1,21 @@
+{
+  "model": "LightGBM",
+  "params": {
+    "n_estimators": 400,
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_child_samples": 100,
+    "subsample": 0.7,
+    "colsample_bytree": 1.0,
+    "reg_lambda": 1.0,
+    "random_state": 42
+  },
+  "metrics": {
+    "val_logloss": 0.4723676013153164,
+    "val_roc_auc": 0.747456369060598,
+    "test_logloss": 0.46818370867457115,
+    "test_roc_auc": 0.7525268477160618
+  },
+  "n_features": 137,
+  "random_state": 42
+}
